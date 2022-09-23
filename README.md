@@ -3,6 +3,7 @@ This repo is a mindspore implementation for Point-Transformer. [Zhao et al.](htt
 ![Point-Transformer structre](https://github.com/sh4175515/Point-transformer-Mindspore/blob/main/PointTransformer.png)
 # Requiremernt
 ```
+python = 3.8
 mindspore = 1.7
 ```
 # Classification
