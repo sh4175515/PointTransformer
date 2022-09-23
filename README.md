@@ -1,10 +1,10 @@
 # Point-Transformer-Mindspore
-This repo is a mindSpore implementation for Point-Transformer. [Zhao et al.](https://openaccess.thecvf.com/content/ICCV2021/papers/Zhao_Point_Transformer_ICCV_2021_paper.pdf)
+This repo is a MindSpore implementation for Point-Transformer. [Zhao et al.](https://openaccess.thecvf.com/content/ICCV2021/papers/Zhao_Point_Transformer_ICCV_2021_paper.pdf)
 ![Point-Transformer structre](https://github.com/sh4175515/Point-transformer-Mindspore/blob/main/PointTransformer.png)
 # Requiremernt
 ```
 python = 3.8
-mindSpore = 1.7
+MindSpore = 1.7
 ```
 # Classification
 Download dataset ModelNet40, save in 
