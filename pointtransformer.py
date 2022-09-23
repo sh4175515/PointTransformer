@@ -1,17 +1,3 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
 """
 PointTransformer Backbone Module
 
@@ -22,7 +8,6 @@ import mindspore.ops as ops
 from mindspore import context
 import mindspore
 
-#context.set_context(mode=context.GRAPH_MODE, device_target="GPU", device_id = 1)
 
 class Backbone(nn.Cell):
     def __init__(self):
@@ -64,6 +49,7 @@ class Backbone(nn.Cell):
             xyz_and_feat.append((xyz, points))
         return points, xyz_and_feat
 
+
 class pointtransformercls(nn.Cell):
     def __init__(self):
         super(pointtransformercls, self).__init__()
@@ -86,6 +72,7 @@ class pointtransformercls(nn.Cell):
         # res = self.random(res,(1,0))
 
         return res
+
 
 class pointtransformerseg(nn.Cell):
     def __init__(self):
@@ -115,7 +102,7 @@ class pointtransformerseg(nn.Cell):
             nn.Dense(64, n_c)
         )
         self.transpore = ops.Transpose()
-        
+
     def construct(self, x):
         points, xyz_and_feats = self.backbone(x)
         xyz = xyz_and_feats[-1][0]
@@ -126,14 +113,13 @@ class pointtransformerseg(nn.Cell):
 
             points = self.transpore(points, (0, 2, 1))
             points = self.transformers[i](xyz, points)[0]
-        
-        return self.fc3(points).view(-1,50)
+
+        return self.fc3(points).view(-1, 50)
+
+
 if __name__ == "__main__":
     import numpy as np
-     
+
     C = pointtransformerseg()
     x_dim = mindspore.Tensor(np.random.random((2, 1024, 22)), dtype=mindspore.float32)
     print(C(x_dim).shape)
-
-     
-

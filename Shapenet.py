@@ -6,8 +6,6 @@ import mindspore.ops as ops
 import mindspore.dataset as ds
 from mindspore import context
 
-#context.set_context(mode=context.GRAPH_MODE, device_target="GPU", device_id=2)
-
 np.random.seed(4399)
 
 
