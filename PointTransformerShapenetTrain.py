@@ -1,4 +1,3 @@
-
 """ PointNet segmentation training script."""
 
 import argparse
@@ -25,6 +24,7 @@ from mindspore.context import ParallelMode
 import time
 from mindspore.parallel._utils import (_get_device_num, _get_gradients_mean,
                                        _get_parallel_mode, _get_enable_parallel_optimizer)
+
 set_seed(1)
 
 num_classes = 16
@@ -43,10 +43,10 @@ class MyWithLossCell(nn.Cell):
         ti1 = time.time()
         """连接前向网络和损失函数"""
         out = self.backbone(data)
-        loss = self.loss_fn(out,label)
+        loss = self.loss_fn(out, label)
         ti2 = time.time()
-        print("Loss Net time:",ti2-ti1)
-        return self.loss_fn(out, label),out
+        print("Loss Net time:", ti2 - ti1)
+        return self.loss_fn(out, label), out
 
 
 class MyTrainStep(nn.TrainOneStepCell):
@@ -58,15 +58,15 @@ class MyTrainStep(nn.TrainOneStepCell):
         self.grad = ops.GradOperation(get_by_list=True)
         self.optimizer = optimizer
         self.weights = self.optimizer.parameters
-        
 
     def construct(self, data, label):
         """构建训练过程"""
         weights = self.weights
-        loss,output = self.network(data, label)
+        loss, output = self.network(data, label)
         grads = self.grad(self.network, weights)(data, label)
         loss = F.depend(loss, self.optimizer(grads))
-        return loss,output
+        return loss, output
+
 
 def to_categorical(y, num_class):
     Eye = ops.Eye()
@@ -84,8 +84,10 @@ for cat in seg_classes.keys():
     for label in seg_classes[cat]:
         seg_label_to_cat[label] = cat
 
+
 def pointnet_seg_train(args_opt):
     """PointNet segmentation train."""
+
     def log_string(str):
         logger.info(str)
         print(str)
@@ -113,17 +115,18 @@ def pointnet_seg_train(args_opt):
     logger.addHandler(file_handler)
     log_string('PARAMETER ...')
 
-    context.set_context(mode=context.PYNATIVE_MODE, device_target=args_opt.device_target, device_id = 2,max_call_depth=20000)
+    context.set_context(mode=context.PYNATIVE_MODE, device_target=args_opt.device_target, device_id=2,
+                        max_call_depth=20000)
 
     # Data Pipeline.
     logger.info("preparing data...")
     train_dataset = PartNormalDataset(root=args_opt.data_url, split="train",
-                                        normal_channel= True)
-    train_ds = ds.GeneratorDataset(train_dataset, ["output","cls", "label"],num_parallel_workers=10,shuffle=True)
+                                      normal_channel=True)
+    train_ds = ds.GeneratorDataset(train_dataset, ["output", "cls", "label"], num_parallel_workers=10, shuffle=True)
     train_ds = train_ds.batch(batch_size=args_opt.batch_size)
 
     test_dataset = PartNormalDataset(root=args_opt.data_url, split="test", normal_channel=True)
-    test_ds = ds.GeneratorDataset(test_dataset, ["output","cls", "label"], num_parallel_workers=10, shuffle=False) 
+    test_ds = ds.GeneratorDataset(test_dataset, ["output", "cls", "label"], num_parallel_workers=10, shuffle=False)
     test_ds = test_ds.batch(batch_size=args_opt.batch_size)
 
     steps_per_epoch = train_ds.get_dataset_size()
@@ -150,24 +153,24 @@ def pointnet_seg_train(args_opt):
     network_opt = nn.Adam(network.trainable_params(), lr, args_opt.momentum)
 
     # Define loss function.
-    network_loss = nn.SoftmaxCrossEntropyWithLogits(sparse = True, reduction = "mean")
+    network_loss = nn.SoftmaxCrossEntropyWithLogits(sparse=True, reduction="mean")
 
-    #network_loss = ops.SoftmaxCrossEntropyWithLogits()
+    # network_loss = ops.SoftmaxCrossEntropyWithLogits()
     # Init the model.
-   # network.set_train(True)
-    #net_train = Model(network, loss_fn=network_loss, optimizer=network_opt)
-    my_network_loss = MyWithLossCell(network,network_loss)
-    my_train = MyTrainStep(my_network_loss,network_opt)
-    network_with_loss = nn.WithLossCell(network,network_loss)
-    train_net = nn.TrainOneStepCell(network_with_loss,network_opt)
-    eval_net = nn.WithEvalCell(network,network_loss)
-    train_net_output = TrainWithCell(eval_net,network_opt)
+    # network.set_train(True)
+    # net_train = Model(network, loss_fn=network_loss, optimizer=network_opt)
+    my_network_loss = MyWithLossCell(network, network_loss)
+    my_train = MyTrainStep(my_network_loss, network_opt)
+    network_with_loss = nn.WithLossCell(network, network_loss)
+    train_net = nn.TrainOneStepCell(network_with_loss, network_opt)
+    eval_net = nn.WithEvalCell(network, network_loss)
+    train_net_output = TrainWithCell(eval_net, network_opt)
     # net_train = nn.TrainOneStepCell(criterion, network_opt)
     train_net.set_train()
     my_train.set_train()
     train_net_output.set_train()
-    #eval_net = nn.WithEvalCell(network,network_loss)
-    #eval_net = nn.WithEvalCell(network,network_loss)
+    # eval_net = nn.WithEvalCell(network,network_loss)
+    # eval_net = nn.WithEvalCell(network,network_loss)
     best_acc = 0
     global_epoch = 0
     best_class_avg_iou = 0
@@ -181,73 +184,46 @@ def pointnet_seg_train(args_opt):
         my_train.set_train(True)
         train_net_output.set_train(True)
 
-
         for points in tqdm(train_ds.create_dict_iterator(), total=steps_per_epoch, smoothing=0.9):
-     #       points = points.data.numpy()
-#            points[:, :, 0:3] = pointnet_utils.random_scale_point_cloud(points[:, :, 0:3])
- #           points[:, :, 0:3] = pointnet_utils.shift_point_cloud(points[:, :, 0:3])
-           # points = ms.Tensor(points)
-           # points, target = points.float().cuda(), target.long().cuda()
-  #          points = points.transpose(2, 1)
-            #print(points["output"].shape,points["label"].shape)
-            t1 = time.time()
             point_set = points["output"]
             cls = points["cls"]
             target = points["label"]
-            t2 = time.time()
-            print("read data time",t2-t1)
-            cat = ops.Concat(axis = 2)
+            cat = ops.Concat(axis=2)
             onehot = ops.OneHot()
             _, N, C = point_set.shape
             point = cat((mindspore.Tensor(point_set), mindspore.numpy.tile(
-            onehot(mindspore.Tensor(cls, mindspore.int32), 16, mindspore.Tensor(1.0, mindspore.float32),
-                    mindspore.Tensor(0.0, mindspore.float32)),
-            (1, N, 1))))
-            #point = cat((mindspore.Tensor(point_set), mindspore.numpy.tile(onehot(mindspore.Tensor(cls,mindspore.int32), 16, mindspore.Tensor(1.0, mindspore.float32), mindspore.Tensor(0.0, mindspore.float32), (1,N, 1))))
-           # seg_pred = network(point)
+                onehot(mindspore.Tensor(cls, mindspore.int32), 16, mindspore.Tensor(1.0, mindspore.float32),
+                       mindspore.Tensor(0.0, mindspore.float32)),
+                (1, N, 1))))
             target = target.view(-1, 1)[:, 0]
-            t3 = time.time()
 
-            print("data chuli  time",t3-t2)
-            #print(seg_pred)
-           # pred_choice = seg_pred.max(1)[1]
-           # correct = ops.Equal()(pred_choice,target).sum()
-           # correct = pred_choice.eq(target).sum()
-            #mean_correct.append(correct / (args.batch_size * 1024))
-#            loss = train_net(point,target)
-#            loss_num = loss.asnumpy()
-#            loss_list.append(loss_num)
-#            _,output,eval_label = eval_net(point,target)
-#            loss,output,_ = train_net_output(point,target)
-            loss,output = my_train(point,target)
-           # print(loss)
-            t4 = time.time()
-            print("train time",t4-t3)
-            pred_choice = output.max(1)[1]
-            correct = ops.Equal()(pred_choice,target).sum()
-            #correct = pred_choice.eq(target).sum()
+            loss, output = my_train(point, target)
+            # print(loss)
+            correct = ops.Equal()(pred_choice, target).sum()
+            # correct = pred_choice.eq(target).sum()
             mean_correct.append(correct / (args.batch_size * 1024))
-        train_instance_acc = np.mean(mean_correct)
-        #log_string('Train accuracy is: %.5f' % train_instance_acc)
+            train_instance_acc = np.mean(mean_correct)
+            # log_string('Train accuracy is: %.5f' % train_instance_acc)
 
-        test_metrics = {}
-        total_correct = 0
-        total_seen = 0
-        total_seen_class = [0 for _ in range(args_opt.num_part)]
-        total_correct_class = [0 for _ in range(args_opt.num_part)]
-        shape_ious = {cat: [] for cat in seg_classes.keys()}
-        seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+            test_metrics = {}
+            total_correct = 0
+            total_seen = 0
+            total_seen_class = [0 for _ in range(args_opt.num_part)]
+            total_correct_class = [0 for _ in range(args_opt.num_part)]
+            shape_ious = {cat: [] for cat in seg_classes.keys()}
+            seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
-        for cat in seg_classes.keys():
-            for label in seg_classes[cat]:
-                seg_label_to_cat[label] = cat
+            for cat in seg_classes.keys():
+                for
+            label in seg_classes[cat]:
+            seg_label_to_cat[label] = cat
 
-        classifier = classifier.eval()
+            classifier = classifier.eval()
 
-        for batch_id, (points, target) in tqdm(enumerate(test_ds), total=len(test_ds), smoothing=0.9):
-            cur_batch_size, NUM_POINT, _ = points.size()
-            points , target = points.float().cuda(), target.long().cuda()
-            seg_pred= classifier(points)
+            for batch_id, (points, target) in tqdm(enumerate(test_ds), total=len(test_ds), smoothing=0.9):
+                cur_batch_size, NUM_POINT, _ = points.size()
+            points, target = points.float().cuda(), target.long().cuda()
+            seg_pred = classifier(points)
             cur_pred_val = seg_pred.cpu().data.numpy()
             cur_pred_val_logits = cur_pred_val
             cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
@@ -255,8 +231,8 @@ def pointnet_seg_train(args_opt):
 
             for i in range(cur_batch_size):
                 cat = seg_label_to_cat[target[i, 0]]
-                logits = cur_pred_val_logits[i, :, :]
-                cur_pred_val[i, :] = np.argmax(logits[:, seg_classes[cat]], 1) + seg_classes[cat][0]
+            logits = cur_pred_val_logits[i, :, :]
+            cur_pred_val[i, :] = np.argmax(logits[:, seg_classes[cat]], 1) + seg_classes[cat][0]
 
             correct = np.sum(cur_pred_val == target)
             total_correct += correct
@@ -264,31 +240,33 @@ def pointnet_seg_train(args_opt):
 
             for l in range(args_opt.num_part):
                 total_seen_class[l] += np.sum(target == l)
-                total_correct_class[l] += (np.sum((cur_pred_val == l) & (target == l)))
+            total_correct_class[l] += (np.sum((cur_pred_val == l) & (target == l)))
 
             for i in range(cur_batch_size):
                 segp = cur_pred_val[i, :]
-                segl = target[i, :]
-                cat = seg_label_to_cat[segl[0]]
-                part_ious = [0.0 for _ in range(len(seg_classes[cat]))]
-                for l in seg_classes[cat]:
-                    if (np.sum(segl == l) == 0) and (
-                            np.sum(segp == l) == 0):  # part is not present, no prediction as well
-                        part_ious[l - seg_classes[cat][0]] = 1.0
-                    else:
-                        part_ious[l - seg_classes[cat][0]] = np.sum((segl == l) & (segp == l)) / float(
-                            np.sum((segl == l) | (segp == l)))
-                shape_ious[cat].append(np.mean(part_ious))
+            segl = target[i, :]
+            cat = seg_label_to_cat[segl[0]]
+            part_ious = [0.0 for _ in range(len(seg_classes[cat]))]
+            for l in seg_classes[cat]:
+                if
+            (np.sum(segl == l) == 0) and (
+            np.sum(segp == l) == 0):  # part is not present, no prediction as well
+            part_ious[l - seg_classes[cat][0]] = 1.0
+            else:
+            part_ious[l - seg_classes[cat][0]] = np.sum((segl == l) & (segp == l)) / float(
+            np.sum((segl == l) | (segp == l)))
+            shape_ious[cat].append(np.mean(part_ious))
 
-        all_shape_ious = []
-        for cat in shape_ious.keys():
-            for iou in shape_ious[cat]:
-                all_shape_ious.append(iou)
+            all_shape_ious = []
+            for cat in shape_ious.keys():
+                for
+            iou in shape_ious[cat]:
+            all_shape_ious.append(iou)
             shape_ious[cat] = np.mean(shape_ious[cat])
-        mean_shape_ious = np.mean(list(shape_ious.values()))
-        test_metrics['accuracy'] = total_correct / float(total_seen)
-        test_metrics['class_avg_accuracy'] = np.mean(
-            np.array(total_correct_class) / np.array(total_seen_class, dtype=np.float))
+            mean_shape_ious = np.mean(list(shape_ious.values()))
+            test_metrics['accuracy'] = total_correct / float(total_seen)
+            test_metrics['class_avg_accuracy'] = np.mean(
+        np.array(total_correct_class) / np.array(total_seen_class, dtype=np.float))
         for cat in sorted(shape_ious.keys()):
             log_string('eval mIoU of %s %f' % (cat + ' ' * (14 - len(cat)), shape_ious[cat]))
         test_metrics['class_avg_iou'] = mean_shape_ious
@@ -298,19 +276,19 @@ def pointnet_seg_train(args_opt):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = str(checkpoints_dir) + '/best_model.pth'
-            log_string('Saving at %s' % savepath)
-            state = {
-                'epoch': epoch,
-                'train_acc': train_instance_acc,
-                'test_acc': test_metrics['accuracy'],
-                'class_avg_iou': test_metrics['class_avg_iou'],
-                'inctance_avg_iou': test_metrics['inctance_avg_iou'],
-                'model_state_dict': classifier.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-            }
-            save_checkpoint(state, savepath)  # 保存模型
-            log_string('Saving model....')
+        savepath = str(checkpoints_dir) + '/best_model.pth'
+        log_string('Saving at %s' % savepath)
+        state = {
+        'epoch': epoch,
+        'train_acc': train_instance_acc,
+        'test_acc': test_metrics['accuracy'],
+        'class_avg_iou': test_metrics['class_avg_iou'],
+        'inctance_avg_iou': test_metrics['inctance_avg_iou'],
+        'model_state_dict': classifier.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        }
+        save_checkpoint(state, savepath)  # 保存模型
+        log_string('Saving model....')
 
         if test_metrics['accuracy'] > best_acc:
             best_acc = test_metrics['accuracy']
@@ -323,32 +301,32 @@ def pointnet_seg_train(args_opt):
         log_string('Best inctance avg mIOU is: %.5f' % best_inctance_avg_iou)
         global_epoch += 1
 
+        if __name__ == '__main__':
+            parser = argparse.ArgumentParser(description='PointNet segmentation train.')
+        parser.add_argument('--data_url', default=r"./shapenetcore_partanno_segmentation_benchmark_v0_normal/",
+                            help='Location of data.')
+        parser.add_argument('--epoch_size', type=int, default=251, help='Train epoch size.')
+        parser.add_argument('--device_target', type=str, default="GPU", choices=["Ascend", "GPU", "CPU"])
+        parser.add_argument('--batch_size', type=int, default=1, help='Number of batch size.')
+        parser.add_argument('--repeat_num', type=int, default=1, help='Number of repeat.')
+        parser.add_argument('--num_points', type=int, default=2048, help='Number of points.')
+        parser.add_argument('--num_classes', type=int, default=40, help='Number of classification.')
+        parser.add_argument('--pretrained', type=bool, default=False, help='Load pretrained model.')
+        parser.add_argument('--keep_checkpoint_max', type=int, default=10, help='Max number of checkpoint files.')
+        parser.add_argument('--ckpt_save_dir', type=str, default="./pointnet_cls", help='Location of training outputs.')
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='PointNet segmentation train.')
-    parser.add_argument('--data_url', default="/home/zhangcan/New_tan/Point-Transformers/data/shapenetcore_partanno_segmentation_benchmark_v0_normal/", help='Location of data.')
-    parser.add_argument('--epoch_size', type=int, default=251, help='Train epoch size.')
-    parser.add_argument('--device_target', type=str, default="GPU", choices=["Ascend", "GPU", "CPU"])
-    parser.add_argument('--batch_size', type=int, default=1, help='Number of batch size.')
-    parser.add_argument('--repeat_num', type=int, default=1, help='Number of repeat.')
-    parser.add_argument('--num_points', type=int, default=2048, help='Number of points.')
-    parser.add_argument('--num_classes', type=int, default=40, help='Number of classification.')
-    parser.add_argument('--pretrained', type=bool, default=False, help='Load pretrained model.')
-    parser.add_argument('--keep_checkpoint_max', type=int, default=10, help='Max number of checkpoint files.')
-    parser.add_argument('--ckpt_save_dir', type=str, default="./pointnet_cls", help='Location of training outputs.')
+        parser.add_argument("--learning_rates", type=list, default=None, help="A list of learning rates.")
+        parser.add_argument("--lr_decay_mode", type=str, default="cosine_decay_lr", help="Learning rate decay mode.")
+        parser.add_argument("--min_lr", type=float, default=0.00001, help="The min learning rate.")
+        parser.add_argument("--max_lr", type=float, default=0.001, help="The max learning rate.")
+        parser.add_argument("--decay_epoch", type=int, default=250, help="Number of decay epochs.")
+        parser.add_argument("--milestone", type=list, default=None, help="A list of milestone.")
+        parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for the moving average.")
 
-    parser.add_argument("--learning_rates", type=list, default=None, help="A list of learning rates.")
-    parser.add_argument("--lr_decay_mode", type=str, default="cosine_decay_lr", help="Learning rate decay mode.")
-    parser.add_argument("--min_lr", type=float, default=0.00001, help="The min learning rate.")
-    parser.add_argument("--max_lr", type=float, default=0.001, help="The max learning rate.")
-    parser.add_argument("--decay_epoch", type=int, default=250, help="Number of decay epochs.")
-    parser.add_argument("--milestone", type=list, default=None, help="A list of milestone.")
-    parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for the moving average.")
+        parser.add_argument('--dataset_sink_mode', type=bool, default=False, help='The dataset sink mode.')
+        parser.add_argument('--download', type=bool, default=False, help='Download ModelNet40 train dataset.')
+        parser.add_argument('--use_norm', type=bool, default=False, help='use_norm.')
+        parser.add_argument('--num_part', type=int, default=50, help='Number of parts.')
 
-    parser.add_argument('--dataset_sink_mode', type=bool, default=False, help='The dataset sink mode.')
-    parser.add_argument('--download', type=bool, default=False, help='Download ModelNet40 train dataset.')
-    parser.add_argument('--use_norm', type=bool, default=False, help='use_norm.')
-    parser.add_argument('--num_part', type=int, default=50, help='Number of parts.')
-
-    args = parser.parse_known_args()[0]
-    pointnet_seg_train(args)
+        args = parser.parse_known_args()[0]
+        pointnet_seg_train(args)

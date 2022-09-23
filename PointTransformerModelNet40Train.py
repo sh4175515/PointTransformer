@@ -1,4 +1,3 @@
-
 """ PointNet classification training script."""
 
 import argparse
@@ -80,7 +79,7 @@ def Point_Transformer_train(args_opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Point_Transformer train.')
-    parser.add_argument('--data_url', help='Location of data.')
+    parser.add_argument('--data_url', default="./modelnet40_normal_resampled", help='Location of data.')
     parser.add_argument('--epoch_size', type=int, default=250, help='Train epoch size.')
     parser.add_argument('--device_target', type=str, default="GPU", choices=["Ascend", "GPU", "CPU"])
     parser.add_argument('--batch_size', type=int, default=16, help='Number of batch size.')
@@ -89,7 +88,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_classes', type=int, default=40, help='Number of classification.')
     parser.add_argument('--pretrained', type=bool, default=False, help='Load pretrained model.')
     parser.add_argument('--keep_checkpoint_max', type=int, default=10, help='Max number of checkpoint files.')
-    parser.add_argument('--ckpt_save_dir', type=str, default="./Point_Transformer_cls", help='Location of training outputs.')
+    parser.add_argument('--ckpt_save_dir', type=str, default="./Point_Transformer_cls",
+                        help='Location of training outputs.')
     parser.add_argument("--learning_rates", type=list, default=None, help="A list of learning rates.")
     parser.add_argument("--lr_decay_mode", type=str, default="cosine_decay_lr", help="Learning rate decay mode.")
     parser.add_argument("--min_lr", type=float, default=0.00001, help="The min learning rate.")

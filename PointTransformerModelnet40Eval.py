@@ -48,7 +48,7 @@ def PointTransformer_Eval(args_opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PointNet eval.')
     parser.add_argument('--device_target', type=str, default="GPU", choices=["Ascend", "GPU", "CPU"])
-    parser.add_argument('--data_url', help='Location of data.')
+    parser.add_argument('--data_url', default="./modelnet40_normal_resampled", help='Location of data.')
     parser.add_argument('--download', type=bool, default=False, help='Download ModelNet40 val dataset.')
     parser.add_argument('--ckpt_file', type=str, help='Path of the check point file.')
     parser.add_argument('--batch_size', type=int, default=1, help='Number of batch size.')
